@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 
+	"github.com/ViaQ/logerr/v2/kverrors"
 	loggingv1 "github.com/openshift/cluster-logging-operator/apis/logging/v1"
 	"github.com/rhobs/multicluster-observability-addon/internal/addon"
 	"github.com/rhobs/multicluster-observability-addon/internal/addon/authentication"
 	"github.com/rhobs/multicluster-observability-addon/internal/logging/manifests"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,22 +31,33 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	resources.ClusterLogForwarder = clf
 
 	authCM := &corev1.ConfigMap{}
-	for _, config := range mcAddon.Status.ConfigReferences {
+	caCM := &corev1.ConfigMap{}
+	for _, config := range mcAddon.Spec.Configs {
 		switch config.ConfigGroupResource.Resource {
 		case addon.ConfigMapResource:
 			cm := &corev1.ConfigMap{}
 			key := client.ObjectKey{Name: config.Name, Namespace: config.Namespace}
+			klog.Infof("processing cm %s/%s", config.Namespace, config.Name)
 			if err := k8s.Get(context.Background(), key, cm, &client.GetOptions{}); err != nil {
 				return resources, err
 			}
 
 			// Only care about cm's that configure logging
 			if signal, ok := cm.Labels[addon.SignalLabelKey]; !ok || signal != addon.Logging.String() {
+				klog.Info("skiped configmap")
 				continue
 			}
 
-			// If a cm doesn't have a target label then it's configuring authentication
-			if _, ok := cm.Labels[manifests.AnnotationTargetOutputName]; !ok {
+			// If a cm has the ca annotation then it's the configmap containing the ca
+			if _, ok := cm.Annotations[manifests.AnnotationCAToInject]; ok {
+				klog.Info("ca configmap set")
+				caCM = cm
+				continue
+			}
+
+			// If a cm doesn't have a target annotation then it's configuring authentication
+			if _, ok := cm.Annotations[manifests.AnnotationTargetOutputName]; !ok {
+				klog.Info("auth configmap set")
 				authCM = cm
 				continue
 			}
@@ -52,13 +65,23 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 			resources.ConfigMaps = append(resources.ConfigMaps, *cm)
 		}
 	}
+	ctx := context.Background()
+	authConfig := manifests.AuthDefaultConfig
+	authConfig.MTLSConfig.CommonName = mcAddon.Namespace
+	if len(caCM.Data) > 0 {
+		if ca, ok := caCM.Data["service-ca.crt"]; ok {
+			klog.Info("ca to inject set")
+			authConfig.MTLSConfig.CAToInject = ca
+		} else {
+			return resources, kverrors.New("missing ca bundle in configmap", "key", "service-ca.crt")
+		}
+	}
 
-	secretsProvider, err := authentication.NewSecretsProvider(k8s, mcAddon.Namespace, addon.Logging, manifests.AuthDefaultConfig)
+	secretsProvider, err := authentication.NewSecretsProvider(k8s, mcAddon.Namespace, addon.Logging, authConfig)
 	if err != nil {
 		return resources, err
 	}
 
-	ctx := context.Background()
 	targetsSecret, err := secretsProvider.GenerateSecrets(ctx, authentication.BuildAuthenticationMap(authCM.Data))
 	if err != nil {
 		return resources, err
