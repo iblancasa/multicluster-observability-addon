@@ -9,6 +9,7 @@ import (
 
 const (
 	AnnotationTargetOutputName = "logging.mcoa.openshift.io/target-output-name"
+	AnnotationCAToInject       = "logging.mcoa.openshift.io/ca"
 
 	subscriptionChannelValueKey = "loggingSubscriptionChannel"
 	defaultLoggingVersion       = "stable-5.8"
@@ -24,7 +25,13 @@ var AuthDefaultConfig = &authentication.Config{
 	// TODO(JoaoBraveCoding) Implement when support for LokiStack is added
 	MTLSConfig: manifests.MTLSConfig{
 		CommonName: "",
-		Subject:    &v1.X509Subject{},
-		DNSNames:   []string{},
+		Subject: &v1.X509Subject{
+			OrganizationalUnits: []string{
+				"logging-ocm-addon",
+			},
+		},
+		DNSNames: []string{
+			"collector.openshift-logging.svc",
+		},
 	},
 }
