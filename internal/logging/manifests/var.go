@@ -25,13 +25,7 @@ var AuthDefaultConfig = &authentication.Config{
 	// TODO(JoaoBraveCoding) Implement when support for LokiStack is added
 	MTLSConfig: manifests.MTLSConfig{
 		CommonName: "",
-		Subject: &v1.X509Subject{
-			OrganizationalUnits: []string{
-				"logging-ocm-addon",
-			},
-		},
-		DNSNames: []string{
-			"collector.openshift-logging.svc",
-		},
+		Subject:    &v1.X509Subject{},
+		DNSNames:   []string{},
 	},
 }

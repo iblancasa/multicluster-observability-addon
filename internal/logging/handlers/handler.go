@@ -31,7 +31,6 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	resources.ClusterLogForwarder = clf
 
 	authCM := &corev1.ConfigMap{}
-	caCM := &corev1.ConfigMap{}
 	for _, config := range mcAddon.Spec.Configs {
 		switch config.ConfigGroupResource.Resource {
 		case addon.ConfigMapResource:
@@ -77,11 +76,12 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 		}
 	}
 
-	secretsProvider, err := authentication.NewSecretsProvider(k8s, mcAddon.Namespace, addon.Logging, authConfig)
+	secretsProvider, err := authentication.NewSecretsProvider(k8s, mcAddon.Namespace, addon.Logging, manifests.AuthDefaultConfig)
 	if err != nil {
 		return resources, err
 	}
 
+	ctx := context.Background()
 	targetsSecret, err := secretsProvider.GenerateSecrets(ctx, authentication.BuildAuthenticationMap(authCM.Data))
 	if err != nil {
 		return resources, err
