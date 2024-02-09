@@ -44,7 +44,7 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 
 			// Only care about cm's that configure logging
 			if signal, ok := cm.Labels[addon.SignalLabelKey]; !ok || signal != addon.Logging.String() {
-				klog.Info("skiped configmap")
+				klog.Info("skipped configmap")
 				continue
 			}
 
