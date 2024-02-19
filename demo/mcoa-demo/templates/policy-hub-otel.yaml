@@ -198,14 +198,19 @@ spec:
 {{- end }}
                   service:
                     extensions: [bearertokenauth]
+                    telemetry:
+                      logs:
+                        level: "DEBUG"
+                        development: true
+                        encoding: "json"
                     pipelines:
                       traces:
                         receivers: [otlp]
                         processors: [routing]
                         exporters:
-                        - debug
+                          - debug
 {{- range $_, $cluster_name := .Values.spokeClusters }}
-                        - otlp/{{ $cluster_name }}
+                          - otlp/{{ $cluster_name }}
 {{- end }}
           - complianceType: musthave
             objectDefinition:
@@ -229,6 +234,11 @@ spec:
                     debug:
                     otlphttp:
                   service:
+                    telemetry:
+                      logs:
+                        level: "DEBUG"
+                        development: true
+                        encoding: "json"
                     pipelines:
                       traces:
                         receivers: [jaeger,otlp]
