@@ -45,5 +45,9 @@ spec:
     name: tracing-{{ $cluster_name }}-{{ $dic.type }}
     namespace: {{ $cluster_name }}
 {{- end }}
+  # Tracing template
+  - resource: opentelemetrycollectors
+    name: spoke-otelcol
+    namespace: multicluster-observability-addon
 {{- end }}
 {{- end }}
