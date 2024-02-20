@@ -185,11 +185,11 @@ spec:
                       auth:
                         authenticator: bearertokenauth
                       headers:
-                        X-Scope-OrgID: "{{ $cluster_name }}"
+                        x-scope-orgid: "{{ $cluster_name }}"
 {{- end }}
                   processors:
                     routing:
-                      from_attribute: X-Scope-OrgId
+                      from_attribute: x-scope-orgid
                       table:
 {{- range $_, $cluster_name := .Values.spokeClusters }}
                       - value: {{ $cluster_name }}
@@ -212,36 +212,4 @@ spec:
 {{- range $_, $cluster_name := .Values.spokeClusters }}
                           - otlp/{{ $cluster_name }}
 {{- end }}
-          - complianceType: musthave
-            objectDefinition:
-              apiVersion: opentelemetry.io/v1alpha1
-              kind: OpenTelemetryCollector
-              metadata:
-                name: spoke-otelcol
-                namespace: open-cluster-management
-              spec:
-                config: |
-                  receivers:
-                    jaeger:
-                      protocols:
-                        grpc:
-                    otlp:
-                      protocols:
-                        grpc:
-                        http:
-                  processors:
-                  exporters:
-                    debug:
-                    otlphttp:
-                  service:
-                    telemetry:
-                      logs:
-                        level: "DEBUG"
-                        development: true
-                        encoding: "json"
-                    pipelines:
-                      traces:
-                        receivers: [jaeger,otlp]
-                        processors: []
-                        exporters: [otlphttp, debug]
 {{- end }}

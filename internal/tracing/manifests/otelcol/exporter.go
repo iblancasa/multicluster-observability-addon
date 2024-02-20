@@ -101,6 +101,6 @@ func configureExporterEndpoint(exporter map[string]interface{}, cm corev1.Config
 
 func configureTenant(exporter map[string]interface{}, clusterName string) {
 	headers := make(map[string]string)
-	headers["X-Scope-OrgID"] = clusterName
+	headers["x-scope-orgid"] = clusterName
 	exporter["headers"] = headers
 }

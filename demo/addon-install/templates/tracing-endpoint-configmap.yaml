@@ -10,6 +10,6 @@ metadata:
   annotations:
     tracing.mcoa.openshift.io/target-output-name: otlphttp
 data:
-  endpoint: otlp-http-otel-gateway-route-observability.apps.{{ $.Values.hubClusterName }}
+  endpoint: https://otlp-http-otel-gateway-route-observability.apps.{{ $.Values.hubClusterName }}
 {{- end }}
 {{- end }}
