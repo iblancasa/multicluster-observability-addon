@@ -41,7 +41,7 @@ spec:
     namespace: observability
   # Endpoints for Tracing
   - resource: configmaps
-    name: tracing-{{ $cluster_name }}-otlphttp
+    name: tracing-{{ $cluster_name }}-otlp
     namespace: {{ $cluster_name }}
   # Tracing template
   - resource: opentelemetrycollectors
