@@ -23,6 +23,7 @@ const (
 func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAddOn, adoc *addonapiv1alpha1.AddOnDeploymentConfig) (manifests.Options, error) {
 	resources := manifests.Options{
 		AddOnDeploymentConfig: adoc,
+		ClusterName:           mcAddon.Namespace,
 	}
 
 	klog.Info("Retrieving OpenTelemetry Collector template")
