@@ -5,7 +5,7 @@ metadata:
   name: multicluster-observability-addon
   namespace: {{ $cluster_name }}
 spec:
-  installNamespace: {{ $.Values.addonInstallNamespace }}
+  installNamespace: open-cluster-management-agent-addon
   configs:
 {{- if $.Values.logging.enabled }}
   # Logging Auth ConfigMap
@@ -40,11 +40,9 @@ spec:
     name: otel-gateway
     namespace: observability
   # Endpoints for Tracing
-{{- range $_, $dic := $.Values.tracing.outputs }}
   - resource: configmaps
-    name: tracing-{{ $cluster_name }}-{{ $dic.type }}
+    name: tracing-{{ $cluster_name }}-otlphttp
     namespace: {{ $cluster_name }}
-{{- end }}
   # Tracing template
   - resource: opentelemetrycollectors
     name: spoke-otelcol

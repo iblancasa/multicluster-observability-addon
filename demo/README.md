@@ -45,56 +45,11 @@ The following chart will deploy the `ManagedClusterAddOn` resource that enables 
 
 ## 5. Validate with Grafana
 
+Once the addon is installed on the spoke clusters and the respective forwarders have started to send their signal data you can
+access this grafana instance to see the 3 signals in a single dashboard (roughly 2 minutes after installing the addon).
 
-## Demo Script 
-** GOAL: demo should showcase how quick & easy it is to set up **
+`oc -n grafana-operator get route grafana-route`
 
-1. Installing the AddOn quick and easy `make addon-deploy`
+**Note: user: `root` password: `secret`**
 
-2. Overview of the resources created
-
-2.1 First installation
-- Metrics:
-  - Nothing
-
-- Logs:
-  - CLF template - already familar to users; forwarding to cloudwatch & loki
-  - Auth-ConfigMap - Which authentication methods should be used by the spoke cluster to communicate with the targets
-  - Label & Annotate - CA to be used
-
-- Traces:
-  - OTEL template - already familiar to users
-  - Auth-ConfigMap - Which authentication methods should be used by the spoke cluster to communicate with the targets
-
-2.2 Instaling on each cluster
-- Addon:
-  - ManagedClusterAddOn
-- Metrics:
-  - Nothing
-- Logs:
-  - URL ConfigMap
-- Traces:
-  - URL ConfigMap
-
-3. Results
-
-- All signals available on hub, if possible in a single Grafana instance
-
-4. Highlights
-
-- No need to manage secrets;
-- Single point of configuration;
-- API flexability users already know today
-
-
-Action plan:
-- Douglas:
-  - Grafana instance for all 3 signals
-- Joao:
-  - validate with Peri our script
-  - traces into the script
-  - update the demo README to reflect this script
-- Israel:
-  - 
-
- 
+There will be a pre-loaded dashboard called "MCOA" that will contain a view of the 3 signals regarding pods in the `openshift-console-operator` namespace.
