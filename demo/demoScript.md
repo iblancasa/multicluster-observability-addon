@@ -7,7 +7,7 @@ The goal of MCOA is to configure a fleet of spoke clusters to collect and forwar
 In this demo, we will leverage MCOA to collect and send:
 - Metrics to the hub cluster using Prometheus Agent;
 - Logs to cloudwatch and to an instance of Loki running on the hub cluster using the `ClusterLogForwarder`;
-- Traces to an instance of OTEL Collector running on the hub cluster using the `OpenTelemetryCollector`;
+- Traces to an instance of OTEL Collector running on the hub cluster using the `OpenTelemetryCollector`. It will forward the traces to a Tempo instance;
 
 **Disclaimer**: for this demo we have already pre-provisioned both the hub and spoke clusters, we have already connected the two and we have already deployed some configuration for the stores. However, all the steps we just mentioned are also described in the README that exists on the demo fodler on the project repo.
 
@@ -47,7 +47,7 @@ With in mind, for the demo we will:
 
 - For logs we will deploy a `ClusterLogForwarder` that is configured to forward logs to all logs to CloudWatch and infrastructure logs to Loki;
 
-- For traces we will deploy a `OpenTelemetryCollector` that is configured to forward logs to OTEL Collector;
+- For traces we will deploy a `OpenTelemetryCollector` that is configured to forward traces to another `OpenTelemetryCollector` hosted in the hub cluster which will forward traces to a Tempo instance;
 
 For both logs and traces we also create a configmap that will store which authentication methods should be used against each store. For instance,
 
@@ -67,11 +67,13 @@ RUN `helm upgrade --install addon-config demo/addon-config/ --dry-run`
 
 As previously mentioned our CLF is configured to forward logs to both CloudWatch and the Loki instance we have running on the hub. Notice that we leave with `PLACEHOLDER` all the fields that will be overwriten with cluster specific information once we install the addon on a spoke cluster. In this case the `url` of the Loki instance and the secret name that will be used for the communication.
 
-We also create a configmap with the mapping between the signal store and the authentication method
+We also create a configmap with the mapping between the signal store and the authentication method.
 
 @Israel go through tracing resources
 
-TO BE DONE
+In the case of traces, we configure and OpenTelemetry Collector instance that can receive telemetry data from different sources like OTLP and Jaeger receivers. In the case of the exporters, note that for the `otlp` exporter we don't specify any configuration. The endpoint and the certificates will be populated by MCOA.
+
+Similarly to logging, we have a configmap with the mapping between the exporter and the authentication method to use.
 
 Finally we can now install these resouces. Notice that these resources only need to be configured once, afterwards they will be the template that will be used by the different installations to generat the final manifests that will land on the spoke clusters.
 
@@ -98,7 +100,12 @@ For the logging configuration we will use:
 
 @Israel go through tracing resources
 
-TO BE DONE
+For tracing, the fields to configure are:
+- The `OpenTelemetryCollector` template instance.
+- The authentication configmap `tracing-auth` with the authentication methods to use in the different exporters.
+- A configmap with the endpoints to use for the exporters (in this case, the URL to the OpenTelemetry Collector instance from the hub cluster)
+- A configmap that will contain the CA of the Route that exposed the OTEL Collector from the Hub cluster.
+
 
 Finally we can now install the addon. 
 
@@ -136,7 +143,9 @@ RUN `oc -n openshift-logging get pods -l `
 
 Third, OTEL Collector
 
-RUN `oc -n spoke-otel get pods -l `
+RUN `oc -n spoke-otel get pods -l`
+
+In the case of the OTEL Collector we can see it was deployed in the spoke cluster. If we check the OTEL Collector configuration (`oc -n spoke-otel get pods -o yaml`) we will see the endpoint and the certificates populated in the exporter.
 
 ## 3. Validate with Grafana
 
