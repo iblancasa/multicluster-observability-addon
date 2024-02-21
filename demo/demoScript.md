@@ -71,7 +71,7 @@ We also create a configmap with the mapping between the signal store and the aut
 
 @Israel go through tracing resources
 
-In the case of traces, we configure and OpenTelemetry Collector instance that can receive telemetry data from different sources like OTLP and Jaeger receivers. In the case of the exporters, note that for the `otlp` exporter we don't specify any configuration. The endpoint and the certificates will be populated by MCOA.
+In the case of traces, we configure and OpenTelemetry Collector instance that can receive telemetry data from different sources like OTLP and Jaeger receivers. In the case of the exporters, note that for the `otlp` exporter we don't specify any configuration. The endpoint will be populated by MCOA.
 
 Similarly to logging, we have a configmap with the mapping between the exporter and the authentication method to use.
 
@@ -102,9 +102,7 @@ For the logging configuration we will use:
 
 For tracing, the fields to configure are:
 - The `OpenTelemetryCollector` template instance.
-- The authentication configmap `tracing-auth` with the authentication methods to use in the different exporters.
 - A configmap with the endpoints to use for the exporters (in this case, the URL to the OpenTelemetry Collector instance from the hub cluster)
-- A configmap that will contain the CA of the Route that exposed the OTEL Collector from the Hub cluster.
 
 
 Finally we can now install the addon. 
