@@ -31,14 +31,6 @@ spec:
 {{- end }}
 {{- end }}
 {{- if $.Values.tracing.enabled }}
-  # Tracing Auth ConfigMap
-  - resource: configmaps
-    name: tracing-auth
-    namespace: open-cluster-management
-  # Tracing ca-bundle configmap
-  - resource: secrets
-    name: otel-gateway
-    namespace: observability
   # Endpoints for Tracing
   - resource: configmaps
     name: tracing-{{ $cluster_name }}-otlp
