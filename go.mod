@@ -26,8 +26,8 @@ require (
 )
 
 require (
-	go.etcd.io/etcd/client/v2 v2.305.10
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/kubectl v0.29.1
 )
 
 require (

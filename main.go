@@ -15,25 +15,22 @@ import (
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/rhobs/multicluster-observability-addon/internal/addon"
-	addonhelm "github.com/rhobs/multicluster-observability-addon/internal/addon/helm"
+	"github.com/rhobs/multicluster-observability-addon/internal/mcoa"
+	"github.com/rhobs/multicluster-observability-addon/internal/reconciler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	utilflag "k8s.io/component-base/cli/flag"
 	logs "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
-	"open-cluster-management.io/addon-framework/pkg/addonfactory"
-	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	cmdfactory "open-cluster-management.io/addon-framework/pkg/cmd/factory"
-	"open-cluster-management.io/addon-framework/pkg/utils"
 	"open-cluster-management.io/addon-framework/pkg/version"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
-	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func main() {
@@ -84,22 +81,9 @@ func newControllerCommand() *cobra.Command {
 	return cmd
 }
 
-func runController(ctx context.Context, kubeConfig *rest.Config) error {
-	addonClient, err := addonv1alpha1client.NewForConfig(kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	mgr, err := addonmanager.New(kubeConfig)
-	if err != nil {
-		klog.Errorf("failed to new addon manager %v", err)
-		return err
-	}
-
-	registrationOption := addon.NewRegistrationOption(utilrand.String(5))
-
+func addApisToScheme() error {
 	// Necessary to reconcile ClusterLogging and ClusterLogForwarder
-	err = loggingapis.AddToScheme(scheme.Scheme)
+	err := loggingapis.AddToScheme(scheme.Scheme)
 	if err != nil {
 		return err
 	}
@@ -134,59 +118,55 @@ func runController(ctx context.Context, kubeConfig *rest.Config) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	httpClient, err := rest.HTTPClientFor(kubeConfig)
+func runController(ctx context.Context, kubeConfig *rest.Config) error {
+	err := addApisToScheme()
 	if err != nil {
 		return err
 	}
 
-	mapper, err := apiutil.NewDynamicRESTMapper(kubeConfig, httpClient)
+	registrationOption := addon.NewRegistrationOption(utilrand.String(5))
+
+	mcoa, err := mcoa.NewMCOA(kubeConfig, registrationOption)
 	if err != nil {
 		return err
 	}
 
-	opts := client.Options{
-		Scheme:     scheme.Scheme,
-		Mapper:     mapper,
-		HTTPClient: httpClient,
-	}
-
-	k8sClient, err := client.New(kubeConfig, opts)
+	cfg, err := config.GetConfig()
 	if err != nil {
-		return err
+		fmt.Println("Error getting config:", err)
+		os.Exit(1)
 	}
 
-	addonConfigValuesFn := addonfactory.GetAddOnDeploymentConfigValues(
-		addonfactory.NewAddOnDeploymentConfigGetter(addonClient),
-		addonfactory.ToAddOnCustomizedVariableValues,
-	)
-
-	mcoaAgentAddon, err := addonfactory.NewAgentAddonFactory(addon.Name, addon.FS, "manifests/charts/mcoa").
-		WithConfigGVRs(
-			schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
-			schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
-			schema.GroupVersionResource{Version: "v1", Group: "logging.openshift.io", Resource: "clusterlogforwarders"},
-			schema.GroupVersionResource{Version: "v1alpha1", Group: "opentelemetry.io", Resource: "opentelemetrycollectors"},
-			utils.AddOnDeploymentConfigGVR,
-		).
-		WithGetValuesFuncs(addonConfigValuesFn, addonhelm.GetValuesFunc(k8sClient)).
-		WithAgentRegistrationOption(registrationOption).
-		WithScheme(scheme.Scheme).
-		BuildHelmAgentAddon()
+	mgr, err := manager.New(cfg, manager.Options{})
 	if err != nil {
-		klog.Errorf("failed to build agent %v", err)
-		return err
+		fmt.Println("Failed to create manager:", err)
+		os.Exit(1)
 	}
 
-	err = mgr.AddAgent(mcoaAgentAddon)
-	if err != nil {
-		klog.Fatal(err)
+	mcoaCtx, cancel := context.WithCancelCause(ctx)
+
+	watcher := &reconciler.OTELWatcher{
+		Client: mgr.GetClient(),
+		MCOA:   mcoa,
+		Cancel: cancel,
 	}
 
-	err = mgr.Start(ctx)
-	if err != nil {
-		klog.Fatal(err)
+	ctrl.SetLogger(klog.LoggerWithName(klog.Background(), "addon"))
+
+	ctrl.NewControllerManagedBy(mgr).
+		For(&otelv1alpha1.OpenTelemetryCollector{}).
+		Complete(watcher)
+
+	go mcoa.Start(mcoaCtx)
+
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		fmt.Println("Failed to start manager:", err)
+		os.Exit(1)
 	}
+
 	<-ctx.Done()
 
 	return nil
