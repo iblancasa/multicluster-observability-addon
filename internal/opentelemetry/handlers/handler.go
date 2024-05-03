@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ViaQ/logerr/v2/kverrors"
-	otelv1alpha1 "github.com/open-telemetry/opentelemetry-operator/apis/v1alpha1"
 	"github.com/rhobs/multicluster-observability-addon/internal/addon"
 	"github.com/rhobs/multicluster-observability-addon/internal/addon/authentication"
 	"github.com/rhobs/multicluster-observability-addon/internal/opentelemetry/manifests"
@@ -16,20 +14,17 @@ import (
 )
 
 const (
-	AnnotationCAToInject           = "opentelemetry.mcoa.openshift.io/ca"
-	opentelemetryCollectorResource = "opentelemetrycollectors"
+	AnnotationCAToInject = "opentelemetry.mcoa.openshift.io/ca"
 )
 
-func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAddOn, adoc *addonapiv1alpha1.AddOnDeploymentConfig) (manifests.Options, error) {
+func BuildOptions(ck8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAddOn, adoc *addonapiv1alpha1.AddOnDeploymentConfig) (manifests.Options, error) {
 	resources := manifests.Options{
 		AddOnDeploymentConfig: adoc,
 		ClusterName:           mcAddon.Namespace,
 	}
 
-	klog.Info("Retrieving OpenTelemetry Collector template")
-	key := addon.GetObjectKey(mcAddon.Status.ConfigReferences, otelv1alpha1.GroupVersion.Group, opentelemetryCollectorResource)
-	otelCol := &otelv1alpha1.OpenTelemetryCollector{}
-	if err := k8s.Get(context.Background(), key, otelCol, &client.GetOptions{}); err != nil {
+	otelCol, err := GetOpenTelemetryCollector(ck8s, mcAddon)
+	if err != nil {
 		return resources, err
 	}
 	resources.OpenTelemetryCollector = otelCol
@@ -39,48 +34,40 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	var caSecret *corev1.Secret = nil
 
 	for _, config := range mcAddon.Spec.Configs {
-		key := client.ObjectKey{Name: config.Name, Namespace: config.Namespace}
 		switch config.ConfigGroupResource.Resource {
 		case addon.ConfigMapResource:
-			cm := &corev1.ConfigMap{}
-			klog.Infof("processing cm %s/%s", config.Namespace, config.Name)
-			if err := k8s.Get(context.Background(), key, cm, &client.GetOptions{}); err != nil {
-				return resources, err
-			}
-
-			// Only care about cm's that configure opentelemetry
-			if signal, ok := cm.Labels[addon.SignalLabelKey]; !ok || signal != addon.OpenTelemetry.String() {
-				klog.Info("skipped configmap")
+			cm, isOtelConfig := GetConfigMap(ck8s, config)
+			if !isOtelConfig {
 				continue
 			}
-
-			// If a cm doesn't have a target annotation then it's configuring authentication
-			if _, ok := cm.Annotations[manifests.AnnotationTargetOutputName]; !ok {
+			if isAuthCM(cm) {
 				if authCM != nil {
-					klog.Warning(fmt.Sprintf("auth configmap already set to %s. new configmap %s", authCM.Name, cm.Name))
+					klog.Warningf(
+						"auth ConfigMap already set to %s/%s. new ConfigMap %s/%s",
+						authCM.Namespace, authCM.Name,
+						cm.Namespace, cm.Name,
+					)
 				}
-				klog.Info("auth configmap set")
 				authCM = cm
+				klog.Infof("auth ConfigMap set: %s/%s", authCM.Namespace, authCM.Name)
 				continue
 			}
-
 			resources.ConfigMaps = append(resources.ConfigMaps, *cm)
 		case addon.SecretResource:
-			secret := &corev1.Secret{}
-			klog.Infof("processing secret %s/%s", config.Namespace, config.Name)
-			if err := k8s.Get(context.Background(), key, secret, &client.GetOptions{}); err != nil {
-				return resources, err
-			}
-
-			// Only care about cm's that configure opentelemetry
-			if signal, ok := secret.Labels[addon.SignalLabelKey]; !ok || signal != addon.OpenTelemetry.String() {
-				klog.Info("skipped secret")
+			secret, isOtelConfig := GetSecret(ck8s, config)
+			if !isOtelConfig {
 				continue
 			}
-
-			// If the secret has the ca annotation then it's the secret containing the ca
-			if _, ok := secret.Annotations[AnnotationCAToInject]; ok {
+			if isCASecret(secret) {
+				if caSecret != nil {
+					klog.Warningf(
+						"CA secret already set to %s/%s. new Secret %s/%s",
+						caSecret.Namespace, caSecret.Name,
+						secret.Namespace, secret.Name,
+					)
+				}
 				caSecret = secret
+				klog.Infof("CA secret set: %s/%s", caSecret.Namespace, caSecret.Name)
 				continue
 			}
 		}
@@ -100,7 +87,7 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	}
 
 	if authCM != nil {
-		secretsProvider, err := authentication.NewSecretsProvider(k8s, mcAddon.Namespace, addon.OpenTelemetry, authConfig)
+		secretsProvider, err := authentication.NewSecretsProvider(ck8s, mcAddon.Namespace, addon.OpenTelemetry, authConfig)
 		if err != nil {
 			return resources, err
 		}
