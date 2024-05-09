@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ViaQ/logerr/v2/log"
-
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	otelv1alpha1 "github.com/open-telemetry/opentelemetry-operator/apis/v1alpha1"
 	routev1 "github.com/openshift/api/route/v1"
