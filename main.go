@@ -170,7 +170,7 @@ func runController(ctx context.Context, kubeConfig *rest.Config) error {
 		return err
 	}
 
-	disableReconciliation := os.Getenv("DISABLE_RECONCILIATION")
+	disableReconciliation := os.Getenv("DISABLE_WATCHER_CONTROLLER")
 	if disableReconciliation == "" {
 		var wm *watcher.WatcherManager
 		wm, err = watcher.NewWatcherManager(logger, scheme)
