@@ -175,7 +175,7 @@ func runController(ctx context.Context, kubeConfig *rest.Config) error {
 		var wm *watcher.WatcherManager
 		wm, err = watcher.NewWatcherManager(logger, scheme)
 		if err != nil {
-			logger.Error(err, "unable to create the reconciliation manager")
+			logger.Error(err, "unable to create watcher manager")
 			return err
 		}
 
