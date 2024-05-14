@@ -166,7 +166,7 @@ func runController(ctx context.Context, kubeConfig *rest.Config) error {
 
 	err = mgr.AddAgent(mcoaAgentAddon)
 	if err != nil {
-		logger.Error(err, "unable to add agent")
+		logger.Error(err, "unable to add mcoa agent addon")
 		return err
 	}
 
