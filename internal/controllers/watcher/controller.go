@@ -70,7 +70,7 @@ func NewWatcherManager(logger logr.Logger, scheme *runtime.Scheme) (*WatcherMana
 }
 
 func (wm *WatcherManager) Start(ctx context.Context) {
-	wm.logger.Info("Starting reconciliation manager")
+	wm.logger.Info("Starting watcher manager")
 	go func() {
 		err := (*wm.mgr).Start(ctx)
 		if err != nil {
