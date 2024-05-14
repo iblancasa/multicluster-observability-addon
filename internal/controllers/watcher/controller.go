@@ -74,7 +74,7 @@ func (wm *WatcherManager) Start(ctx context.Context) {
 	go func() {
 		err := (*wm.mgr).Start(ctx)
 		if err != nil {
-			wm.logger.Error(err, "there was a problem while running the reconciliation watcher")
+			wm.logger.Error(err, "there was an error while running the reconciliation watcher")
 		}
 	}()
 }
