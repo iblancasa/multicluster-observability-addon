@@ -21,9 +21,9 @@ const (
 )
 
 var (
-	noExportersFound       = fmt.Errorf("no exporters found")
-	noMountPathFound       = fmt.Errorf("mountpath not found in any secret")
-	noVolumeMountForSecret = fmt.Errorf("no volumemount found for secret")
+	errNoExportersFound       = fmt.Errorf("no exporters found")
+	errNoMountPathFound       = fmt.Errorf("mountpath not found in any secret")
+	errNoVolumeMountForSecret = fmt.Errorf("no volumemount found for secret")
 )
 
 func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAddOn, adoc *addonapiv1alpha1.AddOnDeploymentConfig) (manifests.Options, error) {
@@ -69,7 +69,7 @@ func getSecretExporters(otelCol *otelv1alpha1.OpenTelemetryCollector) (map[authe
 	}
 
 	if len(exporters) == 0 {
-		return exporterSecrets, noExportersFound
+		return exporterSecrets, errNoExportersFound
 	}
 
 	for _, vol := range otelCol.Spec.Volumes {
@@ -98,7 +98,7 @@ func getVolumeMount(otelCol *otelv1alpha1.OpenTelemetryCollector, secretName str
 			return vm, nil
 		}
 	}
-	return v1.VolumeMount{}, noVolumeMountForSecret
+	return v1.VolumeMount{}, errNoVolumeMountForSecret
 }
 
 // searchVolumeMountInExporter checks if the VolumeMount is used in any exporter
@@ -119,7 +119,7 @@ func searchVolumeMountInExporter(vm v1.VolumeMount, exporters map[string]interfa
 			return name, nil
 		}
 	}
-	return "", noMountPathFound
+	return "", errNoMountPathFound
 }
 
 // getExporters gets the exporters from the OpenTelemetryCollector
