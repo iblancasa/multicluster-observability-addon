@@ -40,7 +40,7 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	resources.OpenTelemetryCollector = otelCol
 	klog.Info("OpenTelemetry Collector template found")
 
-	targetSecretName, err := getSecretExporters(otelCol)
+	targetSecretName, err := buildExportersSecrets(otelCol)
 	if err != nil {
 		return resources, nil
 	}
@@ -60,7 +60,7 @@ func BuildOptions(k8s client.Client, mcAddon *addonapiv1alpha1.ManagedClusterAdd
 	return resources, nil
 }
 
-func getSecretExporters(otelCol *otelv1alpha1.OpenTelemetryCollector) (map[authentication.Target]string, error) {
+func buildExportersSecrets(otelCol *otelv1alpha1.OpenTelemetryCollector) (map[authentication.Target]string, error) {
 	exporterSecrets := map[authentication.Target]string{}
 
 	exporters, err := getExporters(otelCol)
